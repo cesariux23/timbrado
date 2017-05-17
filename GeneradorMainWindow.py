@@ -171,8 +171,10 @@ class GeneradorMainWindow(QMainWindow):
                 if not rfc is None:
                     folio_empleado = base_folio+str(folio).zfill(4)
                     folio += 1
+                    #total de percepciones gravadas
+                    total_percepciones_grabadas = 0.0
                     #acumulado del excento
-                    exento = 0.0
+                    exento = float(0)
                     #consecutivo de mov
                     mov = 1
                     #recorre los conceptos
@@ -197,6 +199,9 @@ class GeneradorMainWindow(QMainWindow):
                                     else:
                                         concepto.append(valor_real)
                                         concepto.append(0.0)
+                                        #suma las percepcionesv grabadas
+                                        if descripcion[0]=='1':
+                                            total_percepciones_grabadas += valor_real
                                 except:
                                     concepto.append(0.0)
                                     concepto.append(valor_real)
@@ -204,6 +209,9 @@ class GeneradorMainWindow(QMainWindow):
                                 ws_conceptos.append(concepto)
                                 #se agrega Aportaciones Federales
                                 #ws_conceptos.append((folio_empleado,str(mov),"1","P41", "INGRESOS FEDERALES", "041",0,0))
+
+                                #redondea la suma de percepciones
+                                total_percepciones_grabadas = round(total_percepciones_grabadas,2)
 
                     #se general el anexo de datos generales
                     datos_empleado = [folio_empleado, "IVE"]
@@ -215,6 +223,16 @@ class GeneradorMainWindow(QMainWindow):
                     #     tipo_contrato = '01'
                     #datos estaticos
                     percepciones = round(row[indicedatos['TPERCEP']-1].value, 2)
+                    if percepciones != total_percepciones_grabadas:
+                        dif = round(percepciones - total_percepciones_grabadas,2)
+                        if dif > 1 or dif < -1:
+                            print('-----------------')
+                            print(rfc+' Diferencias -->'+ str(dif))
+                            print('per:')
+                            print(percepciones)
+                            print('suma:')
+                            print(total_percepciones_grabadas)
+                        percepciones = total_percepciones_grabadas
                     deducciones = round(row[indicedatos['TDEDUC']-1].value, 2)
                     isr = round(row[indiceconceptos['ISR']-1].value, 2)
                     descuentos = deducciones - isr
@@ -222,6 +240,8 @@ class GeneradorMainWindow(QMainWindow):
                     nombre = row[indicedatos['NOMBRE']-1].value
                     curp = row[indicedatos['CURP']-1].value
                     nss = row[indicedatos['NSS']-1].value
+                    if not nss:
+                        nss="00000000"
                     fecha_ingreso = row[indicedatos['FECHAING']-1].value
                     baseconf = row[indicedatos['BASECONF']-1].value
                     numero_emp = row[indicedatos['NOEMPEADO']-1].value
