@@ -299,6 +299,11 @@ p, li { white-space: pre-wrap; }
       <string>-- Plantilla --</string>
      </property>
     </item>
+    <item>
+     <property name="text">
+      <string>Compensaciones</string>
+     </property>
+    </item>
    </widget>
    <widget class="QLabel" name="label_6">
     <property name="geometry">

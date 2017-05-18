@@ -19,16 +19,17 @@ class GeneradorMainWindow(QMainWindow):
         self.ui = Ui_generadorMainWindow()
         self.ui.setupUi(self)
         self.quincena_actual = IdQuincena(date.today())
+        self.quincena_final = IdQuincena(date.today())
         self.quincena_actual.set_quincena(self.quincena_actual.quincena-1)
         self.ui.txtanio.setText(str(self.quincena_actual.anio))
         self.ui.txtqna.setText(str(self.quincena_actual.quincena))
-        self.set_quincena()
         self.ui.btnseleccionar.clicked.connect(self.seleccionarArchivo)
         self.ui.btngenerar.clicked.connect(self.generarTimbrado)
         self.ui.txtarchivo.textChanged.connect(self.cambiaArchivo)
         self.ui.txtanio.textChanged.connect(self.cambia_datos_qna)
         self.ui.txtqna.textChanged.connect(self.cambia_datos_qna)
         self.ui.cbtiponomina.currentIndexChanged.connect(self.cambia_tipo)
+        self.ui.cbperiodo.currentIndexChanged.connect(self.cambia_periodo)
         self.archivo_catalogo = 'catalogo.xlsx'
         ##Define los campos requeridos para el timbrado
         self.datos = ['RFC', 'CURP', 'CODIGO', 'NSS',
@@ -52,10 +53,13 @@ class GeneradorMainWindow(QMainWindow):
         self.regimen_empleado = '02'
         self.registrop = self.REGISTRO_PATRONAL
         self.plantilla = True
+        self.periodo = '04'
+        self.dias = 15
+        self.set_quincena()
 
     def cambia_tipo(self, i):
         self.tipo_nomina = i
-        if str(i) in '013':
+        if str(i) in '0135':
             self.regimen_empleado = '02'
             self.registrop = self.REGISTRO_PATRONAL
             self.plantilla = True
@@ -70,17 +74,36 @@ class GeneradorMainWindow(QMainWindow):
             if int(self.ui.txtanio.text()) >= 2015 <= 2020 and int(self.ui.txtqna.text()) >= 1 <= 24:
                 self.quincena_actual.anio = int(self.ui.txtanio.text())
                 self.quincena_actual.set_quincena(int(self.ui.txtqna.text()))
+                if self.dias == 30:
+                    self.quincena_final.set_quincena(int(self.ui.txtqna.text())+1)
                 self.set_quincena()
                 self.fecha_pago = []
-                self.fecha_pago.append(self.quincena_actual.fecha_fin.strftime("%d/%m/%Y"))
+                self.fecha_pago.append(self.quincena_final.fecha_fin.strftime("%d/%m/%Y"))
                 self.fecha_pago.append(self.quincena_actual.fecha_inicio.strftime("%d/%m/%Y"))
-                self.fecha_pago.append(self.quincena_actual.fecha_fin.strftime("%d/%m/%Y"))
+                self.fecha_pago.append(self.quincena_final.fecha_fin.strftime("%d/%m/%Y"))
         except ValueError:
             print('Valores no validos')
+    
+
+    #determina el periodo de pago
+    def cambia_periodo(self, i):
+        if i==1:
+            #pago mensual
+            self.periodo='05'
+            self.dias = 30
+        else:
+            self.periodo='04'
+            self.dias = 15
+        print(self.dias)
 
     #establece la quincena actual
     def set_quincena(self):
-        self.ui.txt_descripcion.setText(self.quincena_actual.nombre.upper())
+        quincena = self.quincena_actual.nombre.upper()
+        if self.dias == 30:
+            quincena = 'PAGO DEL MES '+quincena[13:]
+        if not self.plantilla:
+            quincena += ' H'
+        self.ui.txt_descripcion.setText(quincena)
 
     def seleccionarArchivo(self):
         self.ui.btngenerar.setEnabled(False)
@@ -160,7 +183,7 @@ class GeneradorMainWindow(QMainWindow):
                 self.ui.txtsalida.append('\t***No existe la columna RFC')
             #determina si es plantilla o honorarios
             es_plantilla = False
-            tipo_contrato = '09'
+            tipo_contrato = '99'
             if 'CODIGO' in indicedatos and self.plantilla:
                 es_plantilla = True
                 tipo_contrato = '01'
@@ -215,12 +238,6 @@ class GeneradorMainWindow(QMainWindow):
 
                     #se general el anexo de datos generales
                     datos_empleado = [folio_empleado, "IVE"]
-                    #determina si es plantilla o honorarios
-                    # es_plantilla = False
-                    # tipo_contrato = '09'
-                    # if 'CODIGO' in indicedatos and self.plantilla:
-                    #     es_plantilla = True
-                    #     tipo_contrato = '01'
                     #datos estaticos
                     percepciones = round(row[indicedatos['TPERCEP']-1].value, 2)
                     if percepciones != total_percepciones_grabadas:
@@ -239,22 +256,44 @@ class GeneradorMainWindow(QMainWindow):
                     neto = round(percepciones-deducciones,2)
                     nombre = row[indicedatos['NOMBRE']-1].value
                     curp = row[indicedatos['CURP']-1].value
-                    nss = row[indicedatos['NSS']-1].value
-                    if not nss:
-                        nss="00000000"
-                    fecha_ingreso = row[indicedatos['FECHAING']-1].value
-                    baseconf = row[indicedatos['BASECONF']-1].value
-                    numero_emp = row[indicedatos['NOEMPEADO']-1].value
-                    if not numero_emp:
-                        numero_emp="0000"
                     adscripcion = self.limpiaValor(row[indicedatos['ADSCRIPCION']-1].value)
-                    puesto = self.limpiaValor(row[indicedatos['NOMBRE_PUESTO']-1].value)
-                    tipo_pago = row[indicedatos['IDPAGO']-1].value
-                    cuenta_deposito = row[indicedatos['NCUENTA']-1].value
-                    sueldo_aport = round(row[indicedatos['BASE_SQC']-1].value, 2)
-                    correo = row[indicedatos['CORREO']-1].value
-                    if correo is None:
+
+                    #datos para plantilla
+                    if es_plantilla:
+                        nss = row[indicedatos['NSS']-1].value
+                        if not nss:
+                            nss = '00000000'
+                        fecha_ingreso = row[indicedatos['FECHAING']-1].value
+                        f_ingreso = fecha_ingreso.strftime("%d/%m/%Y")
+                        antiguedad = self.calcular_antiguedad(fecha_ingreso)
+                        baseconf = row[indicedatos['BASECONF']-1].value
+                        numero_emp = row[indicedatos['NOEMPEADO']-1].value
+                        if not numero_emp:
+                            numero_emp = '0000'
+                        puesto = self.limpiaValor(row[indicedatos['NOMBRE_PUESTO']-1].value)
+                        tipo_pago = row[indicedatos['IDPAGO']-1].value
+                        banco = self.banco(tipo_pago)
+                        #cuenta
+                        cuenta_deposito = row[indicedatos['NCUENTA']-1].value
+                        sueldo_aport = round(row[indicedatos['BASE_SQC']-1].value, 2)
+                        correo = row[indicedatos['CORREO']-1].value
+                        if correo is None:
+                            correo = 'ver_rechum@inea.gob.mx'
+                        riesgo_puesto = '1'
+                    else:
+                        nss = ''
+                        f_ingreso = ''
+                        antiguedad = ''
+                        baseconf = ''
+                        numero_emp='0'
+                        banco = False
+                        puesto = ''
+                        sueldo_aport = 0
                         correo = 'ver_rechum@inea.gob.mx'
+                        riesgo_puesto = ''
+
+
+                    #datos para honorarios
 
                     #subtotal, descuentos, total
                     datos_empleado += [percepciones, deducciones, neto]
@@ -266,7 +305,7 @@ class GeneradorMainWindow(QMainWindow):
                     #fecha pago, inicio, fin
                     datos_empleado += self.fecha_pago
                     #dias pagados
-                    datos_empleado.append(15.0)
+                    datos_empleado.append(self.dias)
                     #percepciones, deducciones, otros pagos
                     datos_empleado += [percepciones, deducciones, 0]
                     #nodo emisor
@@ -277,10 +316,9 @@ class GeneradorMainWindow(QMainWindow):
                     #NSS
                     datos_empleado.append(nss)
                     #Fecha inicio relacion laboral
-                    datos_empleado.append(fecha_ingreso.strftime("%d/%m/%Y"))
+                    datos_empleado.append(f_ingreso)
                     #antiguedad
-                    ant = self.calcular_antiguedad(fecha_ingreso)
-                    datos_empleado.append(ant)
+                    datos_empleado.append(antiguedad)
                     #tipo contrato
                     datos_empleado.append(tipo_contrato)
                     #sindicalizado
@@ -295,10 +333,8 @@ class GeneradorMainWindow(QMainWindow):
                     datos_empleado.append(adscripcion)
                     datos_empleado.append(puesto)
                     #riesgo, periodicidad
-                    datos_empleado += ['1', '04']
+                    datos_empleado += [riesgo_puesto, self.periodo]
                     #banco, cuenta
-                    banco = self.banco(tipo_pago)
-                    #cuenta
                     if banco:
                         datos_empleado.append(banco)
                         datos_empleado.append(cuenta_deposito)
@@ -307,10 +343,10 @@ class GeneradorMainWindow(QMainWindow):
                     #sueldo base Aportacion
                     datos_empleado.append(sueldo_aport)
                     #salario diario
-                    datos_empleado.append(round(percepciones/15, 2))
+                    datos_empleado.append(round(percepciones/self.dias, 2))
                     #entidad
                     datos_empleado.append('VER')
-                    #sueldos
+                    #sueldos (y asimilados a salarios)
                     datos_empleado += [percepciones, '', '', percepciones-exento, exento]
                     #otras deducciones, impuestos retenidos
                     datos_empleado += [descuentos, isr]

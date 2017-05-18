@@ -19,6 +19,9 @@ class IdQuincena():
 	def quincena_del_mes(self,dia=1):
 		self.quincena_mes=1
 		self.fecha_fin = date(self.anio,self.mes,1)+relativedelta(months=1,days=-1)
+		#se eliminan los 31
+		if self.fecha_fin.day == 31:
+    			self.fecha_fin = self.fecha_fin+relativedelta(days=-1)
 		if(dia > 15):
 			self.quincena_mes=2
 			dia=16
@@ -40,6 +43,9 @@ class IdQuincena():
 			dia=16
 			self.mes=int(self.quincena/2)
 			self.fecha_fin = date(self.anio,self.mes,1)+relativedelta(months=1,days=-1)
+			#se eliminan los 31
+			if self.fecha_fin.day == 31:
+    				self.fecha_fin = self.fecha_fin+relativedelta(days=-1)
 		else:
 			dia=1
 			self.mes=int((self.quincena+1)/2)
