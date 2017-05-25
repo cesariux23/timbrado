@@ -59,7 +59,7 @@ class GeneradorMainWindow(QMainWindow):
 
     def cambia_tipo(self, i):
         self.tipo_nomina = i
-        if str(i) in '0135':
+        if str(i) in '0134':
             self.regimen_empleado = '02'
             self.registrop = self.REGISTRO_PATRONAL
             self.plantilla = True
